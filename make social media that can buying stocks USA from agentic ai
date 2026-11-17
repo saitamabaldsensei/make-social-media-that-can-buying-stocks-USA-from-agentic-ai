@@ -1,0 +1,145 @@
+
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+contract AISocialStock {
+
+    struct Post {
+        address author;
+        string ticker;
+        string content;
+        uint256 likes;
+        uint256 timestamp;
+    }
+
+    struct AISignal {
+        string ticker;
+        string signal;
+        string analysis;
+        uint256 timestamp;
+    }
+
+    struct VirtualStock {
+        uint256 shares;
+        uint256 averagePrice;
+    }
+
+    Post[] public posts;
+    AISignal[] public aiSignals;
+
+    mapping(address => mapping(uint256 => bool)) public liked;
+    mapping(address => mapping(string => bool)) public following;
+
+    mapping(address =>
+        mapping(string => VirtualStock)
+    ) public portfolio;
+
+    event NewPost(
+        uint256 indexed postId,
+        address indexed author,
+        string ticker
+    );
+
+    event NewAISignal(
+        string ticker,
+        string signal
+    );
+
+    event StockSimulation(
+        address indexed user,
+        string ticker,
+        uint256 shares,
+        uint256 price
+    );
+
+    // SOCIAL MEDIA
+
+    function createPost(
+        string calldata ticker,
+        string calldata content
+    ) external {
+        posts.push(Post(
+            msg.sender,
+            ticker,
+            content,
+            0,
+            block.timestamp
+        ));
+
+        emit NewPost(
+            posts.length - 1,
+            msg.sender,
+            ticker
+        );
+    }
+
+    function likePost(uint256 postId) external {
+        require(postId < posts.length, "Invalid post");
+        require(!liked[msg.sender][postId], "Already liked");
+
+        liked[msg.sender][postId] = true;
+        posts[postId].likes++;
+    }
+
+    function follow(address user) external {
+        require(user != msg.sender, "Cannot follow yourself");
+        following[msg.sender][user == address(0) ? address(1) : user] = true;
+    }
+
+    // AI AGENT SIGNALS
+
+    function publishAISignal(
+        string calldata ticker,
+        string calldata signal,
+        string calldata analysis
+    ) external {
+        aiSignals.push(AISignal(
+            ticker,
+            signal,
+            analysis,
+            block.timestamp
+        ));
+
+        emit NewAISignal(ticker, signal);
+    }
+
+    // PAPER TRADING ONLY
+
+    function simulateBuy(
+        string calldata ticker,
+        uint256 shares,
+        uint256 price
+    ) external {
+        require(shares > 0, "Invalid shares");
+        require(price > 0, "Invalid price");
+
+        VirtualStock storage stock =
+            portfolio[msg.sender][ticker];
+
+        uint256 oldValue = stock.shares * stock.averagePrice;
+        uint256 newValue = shares * price;
+
+        stock.shares += shares;
+        stock.averagePrice =
+            (oldValue + newValue) / stock.shares;
+
+        emit StockSimulation(
+            msg.sender,
+            ticker,
+            shares,
+            price
+        );
+    }
+
+    function getPostCount()
+        external view returns (uint256)
+    {
+        return posts.length;
+    }
+
+    function getSignalCount()
+        external view returns (uint256)
+    {
+        return aiSignals.length;
+    }
+}
